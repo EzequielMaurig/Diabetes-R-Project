@@ -13,6 +13,11 @@ In this case, the project was about section 2/2 "Choose Your Own Project Submiss
 ## Instalation
 This project does not need installation, simply download the excel file to your computer.
 
+## live example
+
+- [https://ezequielmaurig.github.io/Diabetes-R-Project/](https://ezequielmaurig.github.io/Diabetes-R-Project/)
+
+
 ## Licence
 MIT Public License v3.0
 Cannot be used commercially
