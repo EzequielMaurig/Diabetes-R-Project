@@ -1,0 +1,904 @@
+---
+title: "HarvardX: PH125.9x Data Science - EDX Project: Choose Your Own"
+author: "Matias Ezequiel Maurig"
+date: "2024-11-16"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    highlight: tango 
+    keep_tex: true 
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    theme: united 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.align = 'center', cache=FALSE, cache.lazy = FALSE)
+```
+
+\newpage
+
+# Predicting Diabetes Onset: A Machine Learning Approach
+
+## Introduction
+
+The Pima Indians Diabetes Database is a well-known dataset from Kaggle used to predict the onset of diabetes based on various diagnostic measures. This dataset originally comes from the National Institute of Diabetes and Digestive and Kidney Diseases, and its primary objective is to classify individuals as either diabetic or non-diabetic based on their medical and diagnostic information.
+
+Diabetes is one of the most widespread diseases globally, with an estimated 9.3% of the world population affected by diabetes. In particular, type 2 diabetes is a major health concern and is often preventable through early intervention. The Pima Indians Diabetes dataset provides a valuable opportunity to apply machine learning algorithms to improve the accuracy and efficiency of predicting diabetes, enabling healthcare professionals to make earlier and more informed decisions.
+
+## Project Overview
+
+This project is part of the HarvardX PH125.9x Data Science: Capstone course, where our objective is to develop a machine learning model to predict the onset of diabetes. The project, titled "Choose Your Own," provides the flexibility to explore and experiment with different methodologies, focusing on training and comparing various models to determine the most effective one.
+
+In this project, we will:
+
+*Preprocess and clean the dataset:* Handle missing values, scale the data, and prepare it for modeling. *Train multiple classification models:* We will experiment with different algorithms and techniques to predict whether a person is diabetic based on diagnostic measures. *Compare model performance:* After training the models, we will evaluate them using various performance metrics, such as accuracy, precision, recall, and AUC-ROC, to identify the most effective model for predicting diabetes. *Select the best model:* By comparing the results from different models, we will choose the one that offers the best balance of predictive power and efficiency for real-world application.
+
+The goal is to find the most accurate and reliable model that can predict the onset of diabetes, enabling earlier diagnosis and intervention.
+
+### Goal of the Project
+
+The goal of this project is to develop and compare various machine learning models to predict the onset of diabetes. We aim to explore different classification algorithms and assess their performance in accurately identifying whether a person is at risk of diabetes based on diagnostic measures. By evaluating multiple models, we seek to determine the most effective one for early detection, which can later be applied to new, unseen data.
+
+### Importance of Early Detection
+
+Early detection of diabetes is critical for preventing long-term complications and improving patients' quality of life. The global prevalence of diabetes is rising, with an estimated 9.3% of the world's population affected, according to the World Health Organization. By identifying individuals at risk early, we can implement lifestyle changes and medical interventions that may delay or even prevent the onset of the disease. In this project, we are focusing on training models that will assist in this early diagnosis, ultimately contributing to better healthcare outcomes.
+
+```{r, DL and Wrangling, message=FALSE, warning=FALSE, include=FALSE}
+# Install all requiered libraries
+
+if(!require(ggplot2)) install.packages("ggplot2")
+if(!require(tidyverse)) install.packages("tidyverse")
+if(!require(caret)) install.packages("caret")
+if(!require(pROC)) install.packages("pROC")
+if(!require(rpart)) install.packages("rpart")
+if(!require(class)) install.packages("class")
+if(!require(nnet)) install.packages("nnet")
+if(!require(e1071)) install.packages("e1071")
+if(!require(ada)) install.packages("ada")
+if(!require(ggthemes)) install.packages("ggthemes")
+if(!require(rpart.plot)) install.packages("rpart.plot")
+if(!require(knitr)) install.packages("knitr")
+if(!require(NeuralNetTools)) install.packages("NeuralNetTools")
+if(!require(janitor)) install.packages("janitor")
+
+
+# Load Libraries
+library(tidyverse)
+library(ggplot2)
+library(caret)
+library(pROC)
+library(rpart)
+library(class)
+library(nnet)
+library(e1071)
+library(ada)
+library(ggthemes)
+library(downloader)
+library(rpart.plot)
+library(knitr)
+library("NeuralNetTools")
+library(janitor)
+
+
+theme_set(theme_fivethirtyeight())
+
+##################
+### Load Data ###
+#################
+# Data Load and Wrangling
+## Download file from Kaggle "https://www.kaggle.com/datasets/mragpavank/diabetes?resource=download"
+
+diabetes <- read.csv("C:/Users/Usuario/OneDrive/Documentos/Diabetes/Diabetes.csv", stringsAsFactors = FALSE)
+
+#####################
+### Data Wrangling ###
+#######################
+
+# Set seed for reproducibility
+set.seed(15) 
+
+# Split data into training and test set by 80%
+diabetes_indices <- createDataPartition(diabetes$Outcome, p = 0.8, list = FALSE)
+train_data <- diabetes[diabetes_indices, ]
+test_data <- diabetes[-diabetes_indices, ]
+
+# Convert into factors to avoid modeling errors
+train_data$Outcome <- as.factor(train_data$Outcome)
+test_data$Outcome <- as.factor(test_data$Outcome)
+
+# Check Data Frames Length
+if (nrow(test_data) == nrow(train_data)) {
+  print("Both data frames have the same length.")
+} else {
+  print("Data frames have different lengths.")
+}
+
+# Check for Missing or Null Values
+missing_values_test <- sum(is.na(test_data))
+missing_values_train <- sum(is.na(train_data))
+
+cat("Number of missing values in test_data:", missing_values_test, "\n")
+cat("Number of missing values in train_data:", missing_values_train, "\n")
+
+
+```
+
+# Let's Begin with Data Analysis and Wrangling
+
+## Insights About Diabetes
+
+In this section, we will apply data analysis and wrangling tools to explore the dataset. The goal is to uncover interesting patterns and insights that may not be immediately obvious. Through data cleaning, manipulation, and visualization, we'll start to "surf" through the data and highlight key findings that help us understand the underlying trends and factors contributing to diabetes risk. This process will allow us to transform raw data into actionable insights, which will guide the development of our machine learning models.
+
+## Exploring the Relationship Between Variables
+
+As mentioned earlier, diabetes is a disease that affects a significant portion of the global population, with millions of people diagnosed each year. In this section, we will dive into the dataset to explore the relationships between different variables. Our goal is to identify how factors such as age, glucose levels, and insulin resistance relate to the likelihood of developing diabetes. By analyzing these variables, we aim to uncover meaningful patterns that could enhance our predictive models and improve early detection strategies for diabetes.
+
+Let's start with a very global look at the structure presented by the Kaggle data set, "Pima Indians Diabetes Database"
+
+```{r, first view tables, message=FALSE, warning=FALSE, echo = FALSE}
+# View the first rows of the data set
+head(diabetes, 5)
+
+# Data structure
+str(diabetes)
+```
+
+\newpage
+
+## Dataset Structure and Variables
+
+The dataset is structured with several columns, each representing a specific diagnostic measurement or demographic detail of individuals. Let's look at each one a little more in depth.:
+
+-   **Pregnancies**: The number of times the individual has been pregnant.\
+-   **Glucose**: Plasma glucose concentration measured during an oral glucose tolerance test.\
+-   **BloodPressure**: Diastolic blood pressure (mm Hg).\
+-   **SkinThickness**: Triceps skinfold thickness (mm).\
+-   **Insulin**: 2-hour serum insulin (mu U/ml).\
+-   **BMI**: Body Mass Index, calculated as weight in kg divided by the square of height in meters.\
+-   **DiabetesPedigreeFunction**: A function that scores the likelihood of diabetes based on family history and genetic factors.\
+-   **Age**: The age of the individual (years).\
+-   **Outcome**: A binary variable indicating whether the individual has diabetes (1) or not (0).\
+-   **HighInsulin**: An additional feature created for analysis, indicating high insulin levels.
+
+This dataset provides a range of medical and demographic details that can help us understand the relationships between these variables and diabetes occurrence. By exploring and analyzing these features, we aim to uncover patterns that could improve predictive accuracy in determining diabetes outcomes.
+
+```{r, outcomes, message=FALSE, warning=FALSE, echo=FALSE}
+
+# Diabetes case count
+table(diabetes$Outcome)
+
+# Calculate proportions for each outcome
+proportions <- diabetes %>%
+    count(Outcome) %>%
+    mutate(
+        Proportion = n / sum(n),
+        Percentage = paste0(round(Proportion * 100, 1), "%") # Add percentage as a label
+    )
+
+# Convert Outcome to a factor
+proportions$Outcome <- as.factor(proportions$Outcome)
+
+# Pie chart of proportions
+ggplot(proportions, aes(x = "", y = Proportion, fill = Outcome)) +
+  geom_bar(stat = "identity", width = 1) +  
+  geom_text(aes(label = Percentage), position = position_stack(vjust = 0.5), size = 5) +  
+  labs(
+    title = "Proportion of Diabetic vs Non-Diabetic Individuals",
+    x = "",
+    y = "Proportion"
+  ) +
+  scale_fill_manual(
+    values = c("0" = "#219ebc", "1" = "#fb8500"),
+    labels = c("0" = "Non-Diabetic", "1" = "Diabetic"),
+    name = "Outcome"
+  ) +
+  coord_polar(theta = "y")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+The dataset includes a total of **768 records**, divided into two groups based on the **Outcome** variable:
+
+-   **500 individuals (65.1%)** do not have diabetes (Outcome = 0).\
+-   **268 individuals (34.9%)** have diabetes (Outcome = 1).
+
+# Correlation Analysis
+
+To explore relationships among variables, we calculated the correlation matrix for the dataset. Here are some notable correlations:
+
+```{r, correlations, message=FALSE, warning=FALSE, echo = FALSE}
+
+# Descriptive Statistics by Diabetes Outcome
+summary_stats <- diabetes %>%
+  group_by(Outcome) %>%
+  summarise(
+    Age_mean = mean(Age, na.rm = TRUE),
+    Age_sd = sd(Age, na.rm = TRUE),
+    Glucose_mean = mean(Glucose, na.rm = TRUE),
+    Glucose_sd = sd(Glucose, na.rm = TRUE),
+    BMI_mean = mean(BMI, na.rm = TRUE),
+    BMI_sd = sd(BMI, na.rm = TRUE),
+    Insulin_mean = mean(Insulin, na.rm = TRUE),
+    Insulin_sd = sd(Insulin, na.rm = TRUE)
+  )
+
+summary_stats
+
+# Correlations
+cor(diabetes[, sapply(diabetes, is.numeric)])
+
+```
+
+-   **Glucose and Outcome (0.4666):** Individuals with higher glucose levels are more likely to have diabetes.\
+-   **BMI and Outcome (0.2927):** Higher BMI is moderately associated with a higher likelihood of diabetes.\
+-   **Pregnancies and Age (0.5443):** As expected, older individuals tend to have had more pregnancies.\
+-   **Skin Thickness and Insulin (0.4368):** These variables are strongly related, likely reflecting metabolic or physiological factors.
+
+These insights provide initial evidence of how certain variables relate to diabetes onset. Later, we will visualize these relationships more effectively using graphical methods to deepen our understanding and guide feature selection.
+
+### Distribution of BMI Among Diabetic Patients by Age Group
+
+```{r BMI vs Age, message=FALSE, warning=FALSE,  echo=FALSE}
+
+# Distribution of BMI among diabetic patients by age group
+diabetic_data <- subset(diabetes, Outcome == 1)
+ggplot(diabetic_data, aes(x = BMI)) +
+    geom_histogram(fill = "#219ebc", bins = 20) + # Replace "#" with a valid color code
+    facet_wrap(~ Age) +
+    labs(
+        title = "BMI Distribution Among Diabetic Patients by Age Group",
+        x = "BMI",
+        y = "Count"
+    ) +
+    theme(
+        axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold")
+    )
+
+```
+
+The chart reveals how Body Mass Index (BMI) varies across different age groups for diabetic patients. As age increases, we observe notable shifts in the BMI distribution:
+
+-   **Younger Age Groups**: Patients around 21 years old tend to show a distribution skewed towards lower BMI values, indicating that younger diabetic individuals are more likely to have a lower BMI compared to older groups.\
+-   **Older Age Groups**: In contrast, older diabetic patients display a wider and more evenly distributed range of BMI values, suggesting a higher prevalence of obesity or overweight conditions in these groups.
+
+This trend could point to the combined effects of aging and lifestyle changes over time, factors often linked to higher BMI among older individuals with diabetes. This relationship will be explored further with visual and statistical analyses.
+
+\newpage
+
+### Proportion of Diabetic Patients with Elevated Insulin Levels
+
+The bar chart visualizes the proportion of diabetic patients with elevated insulin levels. Elevated insulin levels are classified as "High Insulin" for values greater than 100, and "Normal Insulin" for values at or below 100.
+
+```{r, Insulin levels, message=FALSE, warning=FALSE,  echo=FALSE}
+
+# Proportion of diabetic patients with elevated insulin levels
+diabetes$HighInsulin <- ifelse(diabetes$Insulin > 100, "High Insulin", "Normal Insulin")
+diabetic_data <- subset(diabetes, Outcome == 1)
+
+# Calculate proportions for each insulin level category
+proportions <- as.data.frame(table(diabetic_data$HighInsulin))
+proportions$prop <- proportions$Freq / sum(proportions$Freq)
+
+# Creating the bar chart with proportions above each bar using geom_col
+ggplot(proportions, aes(x=Var1, y=prop)) +
+  geom_col(fill="#023047") +  # Use geom_col to plot the proportions
+  geom_text(aes(label = scales::percent(prop)), vjust = -0.5, size=4) +  # Adding percentages above each bar
+  labs(title="Proportion of Diabetic Patients with Elevated Insulin", 
+       x="Insulin Level", 
+       y="Proportion") + 
+  theme(
+    axis.title.x = element_text(size = 12, face = "bold"),
+    axis.title.y = element_text(size = 12, face = "bold")
+  )
+
+```
+
+-   **High Insulin**: 41% of diabetic patients have elevated insulin levels, indicating a common pattern in the diabetic population.
+-   **Normal Insulin**: The remaining 59% of diabetic patients have insulin levels within the normal range, suggesting that not all diabetes cases are associated with insulin resistance.
+
+These proportions highlight the distribution of insulin levels among diabetic patients, providing insights into the variability of insulin resistance in the population.
+
+## Distribution of Diabetes by Age Group
+
+```{r diabetes by age, message=FALSE, warning=FALSE,  echo=FALSE}
+
+# Proportion of diabetes cases by age group
+ggplot(diabetes, aes(x = Age, fill = factor(Outcome))) +
+  geom_bar(aes(y = ..prop.., group = factor(Outcome)), position = "fill", stat = "count") +
+  labs(title = "Proportion of Diabetes by Age Group", x = "Age Group", y = "Proportion") +
+  scale_fill_manual(values = c("0" = "#219ebc", "1" = "#fb8500"), 
+                    name = "Outcome", labels = c("0" = "No Diabetes", "1" = "Diabetes")) +
+  theme(
+    axis.title.x = element_text(size = 12, face = "bold"),
+    axis.title.y = element_text(size = 12, face = "bold")
+  )
+
+```
+
+The chart presents two sets of bars: one in blue representing the proportion of individuals without diabetes and the other in red representing the proportion with diabetes. As age increases, the proportion of individuals with diabetes also increases, which is reflected in the growing height of the red bars compared to the blue bars as we move to the right along the x-axis. This chart clearly shows how the prevalence of diabetes varies with age, indicating that diabetes is more common in older age groups.
+
+### Scatter Plot of Age vs Glucose
+
+```{r, age vs glucose, message=FALSE, warning=FALSE,  echo=FALSE}
+
+# Scatter Plot of Age vs Glucose
+ggplot(diabetes, aes(x=Age, y=Glucose, color=factor(Outcome))) +
+  geom_point(alpha=0.6) +
+  labs(title="Age vs Glucose by Diabetes Outcome", x="Age", y="Glucose", color="Diabetes Outcome") +
+  scale_color_manual(values=c("0"="#219ebc", "1"="#fb8500"), labels=c("0"="Non-Diabetic", "1"="Diabetic")) +
+  geom_abline(slope = 1, intercept = 0, linetype="dashed", color="gray40") +  # Adding a dashed 45-degree line
+  theme(
+    axis.title.x = element_text(size = 12, face = "bold"),
+    axis.title.y = element_text(size = 12, face = "bold")
+  )
+
+```
+
+As age increases, the proportion of individuals with diabetes also increases, which is reflected in the growing height of the red bars compared to the blue bars as we move to the right along the x-axis. This graph suggests that diabetes is more common in older age groups. It is important to consider these findings when designing strategies for diabetes prevention and management based on the patient's age. People with diabetes can monitor their blood glucose levels using a glucose meter or a continuous glucose monitor. Regular tracking of results is essential to assess the body's response to the diabetes care plan.
+
+We have gathered valuable insights from the dataset by exploring the distribution of key variables and their relationships. Next, we will build and compare several classification models to predict diabetes, evaluating their performance to determine which one yields the best results.
+
+\newpage
+
+# Building Classification Models
+
+## K-Nearest Neighbors (KNN) Model
+
+The first model we will use is the K-Nearest Neighbors (KNN) algorithm. KNN is a simple, non-parametric method used for classification tasks. It works by finding the 'k' nearest data points (neighbors) to a given point and predicting the class label based on the majority class among these neighbors. The value of 'k' is a hyperparameter that we can adjust to optimize the model's performance.
+
+For each model, we will use confusion matrices to assess their performance. A confusion matrix is a tool used to measure the accuracy of a classification model by comparing the predicted labels against the actual labels. It shows the number of correct and incorrect predictions, broken down by class. By evaluating the confusion matrix, we can gain insights into how well the model distinguishes between the different classes and calculate performance metrics such as accuracy, precision, recall, and F1-score.
+
+We selected **k=17** for this KNN model because, after testing different values of kk, it provided the best overall performance. This was determined by evaluating metrics such as accuracy and the balance between sensitivity and specificity during cross-validation. A lower **k** might be *more sensitive* to noise, while a higher **k** could overly *smooth predictions*. With **k=17**, the model achieves a *good balance*, making it more reliable for classifying the data.
+
+### KNN Confusion Matrix
+
+The confusion matrix below shows the results of the KNN model's predictions. Here's how to interpret each part:
+
+```{r, knn model cf, message=FALSE, warning=FALSE,  echo=FALSE }
+#############
+## KNN Model ##
+################
+# Define the number of neighbors
+k <- 17
+
+# Train the KNN model with probabilities using knn3
+knn_model <- knn3(Outcome ~ ., data = train_data, k = k)
+ 
+# Predict probabilities for the positive class in the test set
+probabilities_knn <- predict(knn_model, newdata = test_data, type = "prob")[, 2]
+
+# Create the confusion matrix
+predicted_labels <- ifelse(probabilities_knn > 0.5, 1, 0)
+confusion_matrix <- table(Actual = test_data$Outcome, Predicted = predicted_labels)
+print(confusion_matrix)
+
+```
+
+The **confusion matrix** for the KNN model provides an overview of the predictions made compared to the actual outcomes:
+
+| **Predicted** | **0** | **1** |
+|---------------|-------|-------|
+| **Actual 0**  | 99    | 14    |
+| **Actual 1**  | 16    | 24    |
+
+-   **Correct Predictions**:
+    -   99 samples of class **0** were correctly classified as **0**.
+    -   24 samples of class **1** were correctly classified as **1**.
+-   **Misclassifications**:
+    -   14 samples of class **0** were misclassified as **1**.
+    -   16 samples of class **1** were misclassified as **0**.
+
+\newpage
+
+### KNN Metrics
+
+Let's move on to the **metrics.** :
+
+```{r, knn metrics , message=FALSE, warning=FALSE,  echo=FALSE}
+
+# Calculate the metrics
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)  # Accuracy: Proportion of correct predictions
+precision <- confusionMatrix(confusion_matrix)$byClass["Pos Pred Value"]  # Precision: Proportion of positive predictions that are correct
+recall <- confusionMatrix(confusion_matrix)$byClass["Sensitivity"]  # Recall: Proportion of actual positives correctly identified
+f1_score <- confusionMatrix(confusion_matrix)$byClass["F1"]  # F1-Score: Harmonic mean of precision and recall
+specificity <- confusionMatrix(confusion_matrix)$byClass["Neg Pred Value"]  # Specificity: Proportion of actual negatives correctly identified
+balanced_accuracy <- (recall + specificity) / 2  # Balanced Accuracy: Average of recall and specificity
+
+# Display the results
+metrics_knn <- data.frame(Metric = c("Accuracy", "Precision", "Recall", "F1-Score", "Specificity", "Balanced Accuracy"),
+              Value = c(accuracy, precision, recall, f1_score, specificity, balanced_accuracy))  # Create a data frame for the metrics
+
+print(metrics_knn)
+
+```
+
+-   **Accuracy**: At **80.4%**, the model is correctly classifying most samples.
+-   **Precision**: With a value of **87.6%**, the model is highly effective at avoiding false positives when predicting the positive class (**1**).
+-   **Recall**: At **86.1%**, the model is reliably identifying true positives (**1**), showing strong sensitivity.
+-   **F1-Score**: The F1-Score of **86.8%** indicates a good balance between precision and recall, demonstrating that the model performs well in identifying positive cases while minimizing false negatives.
+-   **Specificity**: At **60.0%**, the model has room for improvement in identifying true negatives (**0**), as some negatives are being misclassified as positives.
+-   **Balanced Accuracy**: With **73.0%**, the model shows decent overall performance when accounting for both sensitivity and specificity.
+
+This KNN model performs well in classifying the positive class (**1**) with high precision and recall, making it suitable for tasks where correctly identifying positives is critical. However, the lower specificity suggests the model struggles more with accurately classifying the negative class (**0**). Let's now look at its ROC curve and AUC.
+
+\newpage
+
+### KNN ROC Curve and AUC
+
+The ROC (Receiver Operating Characteristic) curve is an essential tool for evaluating classification model performance. It shows the relationship between the true positive rate (sensitivity) and the false positive rate (1 - specificity) as the classification threshold varies.
+
+```{r, roc knn, message=FALSE, warning=FALSE,  echo=FALSE}
+# ROC Curve and AUC
+roc_curve <- roc(test_data$Outcome, probabilities_knn)  # Compute the ROC curve for the KNN model
+
+# Data for the ROC curve
+roc_data <- data.frame(
+  tpr = roc_curve$sensitivities,  
+  fpr = 1 - roc_curve$specificities  
+)
+
+# Plot the ROC curve
+roc_plot <- ggplot(roc_data, aes(x = fpr, y = tpr)) +
+  geom_line(color = "#023047", size = 1) +  # Draw the ROC curve line
+  geom_abline(linetype = "dashed", color = "grey") +  # Add a dashed diagonal line (no discrimination line)
+  labs(title = "ROC Curve - KNN Model",
+       x = "1 - Specificity",  # Label for the x-axis
+       y = "Sensitivity")  # Label for the y-axis
+
+print(roc_plot)
+
+# AUC
+auc_value_knn <- auc(roc_curve)
+cat("AUC:", auc_value_knn, "\n")
+
+```
+
+The ROC curve for this KNN model demonstrates excellent performance, with a clear separation between true positive and false positive rates. The **AUC (Area Under the Curve)** value of **0.8135** confirms that the model has strong discriminative ability, effectively distinguishing between positive and negative classes. This indicates that the model is well-suited for the classification task, with reliable predictive power.
+
+\newpage
+
+## Decision Tree Model
+
+A Decision Tree is a popular classification model used to predict the outcome based on a set of input features. It works by recursively splitting the data into subsets based on the feature that provides the best separation of the target classes. Each split is made using a decision rule that minimizes impurity, with nodes representing decision points and leaves representing the final class labels.
+
+In our case, we will apply the Decision Tree algorithm to classify individuals into diabetic or non-diabetic groups based on their features. This model is highly interpretable and provides a clear visualization of the decision-making process.
+
+At the end of the analysis, we'll add a visualization of the tree to help us understand the classification decisions made by the model, and evaluate its performance visually.
+
+### Decision Tree Confusion Matrix
+
+Let's start by looking at the **confusion matrix** of this model:
+
+```{r, decision tree cf, message=FALSE, warning=FALSE,  echo=FALSE }
+# Train the decision tree model
+decision_tree_model <- rpart(Outcome ~ ., data = train_data, method = "class")
+
+# Make predictions on the test set
+predicted_probabilities_tree_model <- predict(decision_tree_model, test_data)[, 2]  # Positive class probabilities
+predicted_labels <- ifelse(predicted_probabilities_tree_model > 0.5, 1, 0)
+
+# Create the confusion matrix
+confusion_matrix <- table(Actual = test_data$Outcome, Predicted = predicted_labels)
+print(confusion_matrix)
+```
+
+### Decision Tree Model Confusion Matrix
+
+The confusion matrix for the Decision Tree model provides key insights into its performance.
+
+-   **True Negatives (TN)**: The model correctly predicted 'Non-Diabetic' (0) in 94 instances. This shows that the model is quite accurate when identifying individuals who are not diabetic.
+-   **False Positives (FP)**: There are 19 instances where the model incorrectly predicted 'Diabetic' (1) when the individual was actually 'Non-Diabetic' (0). This indicates some level of over-prediction for diabetes.
+-   **False Negatives (FN)**: The model incorrectly classified 12 'Diabetic' (1) individuals as 'Non-Diabetic' (0). This suggests the model missed some diabetic cases, which could be problematic in a medical context where false negatives are risky.
+-   **True Positives (TP)**: The model correctly predicted 'Diabetic' (1) in 28 instances. This shows that it is fairly accurate in identifying diabetic individuals.
+
+Overall, the model appears to perform reasonably well, with a higher number of true negatives and true positives than false negatives and false positives. However, the false positive rate (19) and false negative rate (12) could be improved for better overall classification accuracy, especially in ensuring that diabetic individuals are correctly identified.
+
+### Decision Tree Metrics
+
+Confusion matrix shows good performance, let's see its **metrics**:
+
+```{r, desicion tree metrics, message=FALSE, warning=FALSE,  echo=FALSE}
+# Calculate metrics
+TP <- confusion_matrix[2, 2]
+FP <- confusion_matrix[1, 2]
+TN <- confusion_matrix[1, 1]
+FN <- confusion_matrix[2, 1]
+
+# Accuracy
+accuracy <- (TP + TN) / sum(confusion_matrix)
+
+# Precision
+precision <- TP / (TP + FP)
+
+# Recall (Sensitivity)
+recall <- TP / (TP + FN)
+
+# F1-score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+
+# Specificity
+specificity <- TN / (TN + FP)
+
+# Balanced Accuracy
+balanced_accuracy <- (recall + specificity) / 2
+
+# Create summary table
+metrics_decision_tree <- data.frame(
+  Metric = c("Accuracy", "Precision", "Recall", "F1-score", "Specificity", "Balanced Accuracy"),
+  Value = c(accuracy, precision, recall, f1_score, specificity, balanced_accuracy)
+)
+
+# Print summary table
+print(metrics_decision_tree)
+```
+
+\newpage
+
+### Decision Tree ROC curve and AUC
+
+Now let's see its **ROC curve** and the **AUC** for this model :
+
+```{r, deciison tree roc and auc, message=FALSE, warning=FALSE,  echo=FALSE}
+# Plot ROC curve
+roc_plot <- ggplot(roc_data, aes(x = fpr, y = tpr)) +
+  geom_line(color = "#780000", size = 1) +
+  geom_abline(linetype = "dashed", color = "grey") +
+  labs(title = "ROC Curve - Decision Tree Model",
+       x = "1 - Specificity",
+       y = "Sensitivity") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Print the ROC plot
+roc_plot
+
+# AUC
+auc_value_dt <- auc(roc_curve)
+cat("AUC:", auc_value_dt, "\n")
+
+```
+
+This model also shows a great **ROC curve**, far from the **diagonal line** as we can see, and its **AUC** (**AUC: 0.8016593**) demonstrates a strong **performance**. In the end, we will compare all models with their respective **ROC curves**.
+
+\newpage
+
+### Decision Tree Plot
+
+We will conclude by visually examining how the **Decision Tree** model behaves to better understand its decision-making process. By visualizing the tree, we can interpret how the model splits the data based on different features and thresholds, ultimately leading to its predictions. This graphical representation allows us to gain insights into the model's logic and how it makes classification decisions.
+
+```{r, deciison tree plot, message=FALSE, warning=FALSE,  echo=FALSE}
+
+# Plot decision tree
+rpart.plot(decision_tree_model, main = "Decision Tree - Decision Tree Model",
+           type = 3, extra = 101, fallen.leaves = TRUE,
+           box.palette = "RdBu", shadow.col = "gray", nn = TRUE)
+
+```
+
+## SVM Model
+
+In this analysis, we will apply the **Support Vector Machine (SVM)** model to the diabetes dataset. The SVM is a powerful classification algorithm that works by finding a hyperplane that best separates the data points of different classes. In this case, it will help us distinguish between diabetic and non-diabetic individuals based on features such as BMI, age, and glucose levels.
+
+The SVM model aims to maximize the margin between the classes while minimizing classification errors. For this dataset, the model will learn from the provided data and make predictions about the outcome, which indicates whether a person has diabetes or not.
+
+### SVM Confusion Matrix
+
+We will start, as with previous models, by examining the **confusion matrix**, which provides an initial overview of the model's performance. This matrix will allow us to see how well the SVM model classifies diabetic and non-diabetic individuals, highlighting any misclassifications and helping us evaluate its accuracy.
+
+```{r, SVM cf, message=FALSE, warning=FALSE,  echo=FALSE}
+
+# Train SVM model
+svm_model <- svm(Outcome ~ Glucose + BMI, data = train_data, kernel = "linear", probability = TRUE)
+
+# SVM Predictions
+svm_pred <- predict(svm_model, test_data)
+
+# Confusion Matrix
+svm_cm <- confusionMatrix(svm_pred, test_data$Outcome)
+svm_cm
+
+```
+
+The **confusion matrix** shows a performance with an **accuracy** of 83.01%, which indicates a good overall classification rate. However, we also need to consider other metrics like **Sensitivity** (0.9292), which measures how well the model identifies diabetic individuals (high value is good), and **Specificity** (0.5500), which shows how effectively it detects non-diabetic individuals (lower specificity here indicates some room for improvement). The **Kappa** value of 0.5213 suggests moderate agreement between the predicted and actual outcomes beyond chance.
+
+### SVM Metrics
+
+```{r, svm metrics, message=FALSE, warning=FALSE,  echo=FALSE}
+# Calculate metrics
+svm_accuracy <- svm_cm$overall["Accuracy"]
+svm_precision <- svm_cm$byClass["Pos Pred Value"]
+svm_recall <- svm_cm$byClass["Sensitivity"]
+svm_f1 <- svm_cm$byClass["F1"]
+svm_specificity <- svm_cm$byClass["Neg Pred Value"]
+svm_balanced_accuracy <- (svm_recall + svm_specificity) / 2
+
+# Create metrics dataframe
+svm_metrics <- data.frame(
+  Metric = c("Accuracy", "Precision", "Recall", "F1-Score", "Specificity", "Balanced Accuracy"),
+  Value = c(svm_accuracy, svm_precision, svm_recall, svm_f1, svm_specificity, svm_balanced_accuracy)
+)
+print(svm_metrics)
+```
+
+This idea of a *good model* is confirmed when we look at the metrics, which reflect strong performance. The **Accuracy** of 83.01% shows that the model correctly classifies most instances. The **Precision** of 85.37% indicates that when the model predicts a positive outcome, it is correct most of the time. The **Recall** of 92.92% shows that the model is highly effective at identifying diabetic individuals. The **F1-Score** of 88.98% balances precision and recall, further validating the model’s strong performance. Additionally, **Specificity** (73.33%) indicates the model’s ability to detect non-diabetic individuals, and **Balanced Accuracy** (83.13%) confirms the model's overall consistency across both classes.
+
+### SVM Roc curve and AUC
+
+```{r, svm roc and auc, message=FALSE, warning=FALSE,  echo=FALSE}
+# ROC Curve
+svm_probs <- attr(predict(svm_model, test_data, probability = TRUE), "probabilities")[, 2]
+svm_roc <- roc(test_data$Outcome, svm_probs)
+plot(svm_roc, main="SVM ROC Curve", col="#ff006e")
+
+auc_value_svm <- auc(svm_roc)
+cat("AUC:", auc_value_svm, "\n")
+
+```
+
+The model shows a great ROC curve with an AUC of 0.8196903, which indicates excellent performance. This was somewhat surprising, as the **Support Vector Machine (SVM)** model tends to perform well with high-dimensional data, but I wasn't expecting it to be this effective. The high AUC value suggests that the model is very good at distinguishing between diabetic and non-diabetic individuals. Even though we have some imbalances in the dataset, the SVM is robust enough to achieve high sensitivity and specificity, making it an ideal choice for this classification task. The curve's position, well above the diagonal line, demonstrates that the model is much better than random guessing, confirming its overall effectiveness.
+
+\newpage
+
+### SVM Decision Boundry Plot
+
+```{r, svm, message=FALSE, warning=FALSE,  echo=FALSE}
+# Create grid of values for Glucose and BMI
+svm_grid <- expand.grid(
+  Glucose = seq(min(train_data$Glucose), max(train_data$Glucose), length.out = 100),
+  BMI = seq(min(train_data$BMI), max(train_data$BMI), length.out = 100)
+)
+
+# Predict outcomes for the grid
+svm_grid$Outcome <- predict(svm_model, newdata = svm_grid)
+
+# Plot decision boundary
+ggplot(svm_grid, aes(x = Glucose, y = BMI, color = Outcome)) +
+  geom_tile(aes(fill = Outcome), alpha = 0.5) +
+  geom_point(data = train_data, aes(x = Glucose, y = BMI, color = Outcome), size = 3) +
+  labs(title = "SVM Decision Boundary", x = "Glucose", y = "BMI") +
+  scale_color_manual(values = c("red", "blue"))
+```
+
+**SVM Decision Boundary:**
+
+The graph illustrates the decision boundary learned by the SVM model. This boundary is the line that separates the two distinct classes, in this case, diabetic and non-diabetic individuals. The regions on either side of the boundary are shaded differently—often in red and blue—to visually represent the areas where the model predicts each class. The decision boundary itself is determined by the support vectors, which are the data points closest to the boundary. These support vectors are crucial in defining the margin, which is the space between the boundary and the closest points from each class.
+
+The SVM aims to maximize this margin to ensure better generalization to new data, and the position of this line reflects how well the model has learned to separate the classes. A well-placed decision boundary suggests the model is effectively capturing the underlying patterns in the data. This boundary is important for understanding how the model classifies new data points, and it gives insight into its decision-making process.
+
+So far we have seen very good models, but we will make 1 more. One of my favorites.
+
+\newpage
+
+## Neural Network Model
+
+**Neural network** models are incredibly powerful because they can learn and model complex patterns in data. Unlike more traditional models, neural networks can capture nonlinear relationships between variables, making them extremely useful for tasks such as image classification, natural language processing, and time series forecasting. Additionally, their hierarchical structure, based on layers of nodes (neurons) that process information similarly to how the human brain works, allows them to extract more abstract and relevant features as they pass through the layers.
+
+What makes them one of my favorites is their **flexibility** and **adaptability**. With the right amount of data and training, they can achieve outstanding performance, even in complex problems where other models may struggle. Furthermore, their ability to improve as more data becomes available makes neural networks ideal for **Big Data** problems, where other techniques may not be as effective.
+
+### Neural Network Confusion Matrix and Metrics
+
+Well, let's start by looking at the confusion matrix of the last model of this project:
+
+```{r, nn cf, message=FALSE, warning=FALSE,  echo=FALSE}
+
+# Preprocess the data by handling missing values and scaling the features
+train_data[is.na(train_data)] <- lapply(train_data, function(x) ifelse(is.numeric(x), mean(x, na.rm = TRUE), x))
+test_data[is.na(test_data)] <- lapply(test_data, function(x) ifelse(is.numeric(x), mean(x, na.rm = TRUE), x))
+
+# Scale features to ensure that the neural network performs well
+train_data_scaled <- scale(train_data[, c("Glucose", "BMI", "Age", "Insulin")])
+test_data_scaled <- scale(test_data[, c("Glucose", "BMI", "Age", "Insulin")])
+
+# Convert scaled data back to data frame format
+train_data <- data.frame(train_data[, "Outcome"], train_data_scaled)
+colnames(train_data) <- c("Outcome", "Glucose", "BMI", "Age", "Insulin")
+test_data <- data.frame(test_data[, "Outcome"], test_data_scaled)
+colnames(test_data) <- c("Outcome", "Glucose", "BMI", "Age", "Insulin")
+
+# Train the neural network model with adjusted parameters
+nnet_model <- nnet(Outcome ~ Glucose + BMI + Age + Insulin, 
+                   data = train_data, 
+                   size = 15,        
+                   maxit = 1500,     
+                   linout = FALSE,   
+                   trace = FALSE,    
+                   decay = 0.1)      
+
+# Make predictions on the test set (probabilities)
+predicted_probabilities <- predict(nnet_model, newdata = test_data, type = "raw")
+
+# Convert probabilities to binary labels (1 or 0) based on a threshold of 0.5
+predicted_labels <- ifelse(predicted_probabilities > 0.5, 1, 0)
+
+# Generate the confusion matrix to evaluate the model's performance
+confusion_matrix <- table(Actual = test_data$Outcome, Predicted = predicted_labels)
+print(confusion_matrix)
+
+```
+
+The model's accuracy is approximately 83.33%, meaning it correctly classifies 83.33% of the observations, which is quite good, although not perfect. The precision for class 1 is 61.7%, indicating that when the model predicts class 1, there is a 61.7% chance of it being correct. While this is not very high, it is a reasonable value for an initial model. The recall for class 1 is 72.4%, meaning the model correctly identifies 72.4% of the actual class 1 instances, showing a good performance in not missing positive examples. The F1 score for class 1, which combines precision and recall, is 66.9%. This suggests a reasonable balance between precision and recall, indicating that the model is making relatively balanced decisions between correctly identifying positive cases and not generating too many false positives.
+
+```{r, nn metrics, message=FALSE, warning=FALSE,  echo=FALSE}
+# Calculate metrics
+nn_accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+nn_precision <- confusionMatrix(confusion_matrix)$byClass["Pos Pred Value"]
+nn_recall <- confusionMatrix(confusion_matrix)$byClass["Sensitivity"]
+nn_f1_score <- confusionMatrix(confusion_matrix)$byClass["F1"]
+nn_specificity <- confusionMatrix(confusion_matrix)$byClass["Neg Pred Value"]
+nn_balanced_accuracy <- (nn_recall + nn_specificity) / 2
+
+# Display metrics results
+metrics_nn <- data.frame(Metric = c("Accuracy", "Precision", "Recall", "F1-Score", "Specificity", "Balanced Accuracy"),
+                         Value = c(nn_accuracy, nn_precision, nn_recall, nn_f1_score, nn_specificity, nn_balanced_accuracy))
+print(metrics_nn)
+```
+
+
+### Neural Net ROC curve and AUC
+
+```{r, nn roc and auc, message=FALSE, warning=FALSE,  echo=FALSE}
+# Generate the ROC curve for the neural network
+nnet_roc <- roc(as.numeric(test_data$Outcome), predicted_probabilities)
+
+# Create a data frame with the values of the ROC curve
+nnet_roc_data <- data.frame(
+  fpr = 1 - nnet_roc$specificities,  
+  tpr = nnet_roc$sensitivities,      
+  Model = "Neural Network"
+)
+
+# Plot ROC curve for NN model
+ggplot(nnet_roc_data, aes(x = fpr, y = tpr, color = Model)) +
+  geom_line(size = 1.2) +  # Curve line
+  geom_abline(linetype = "dashed", color = "grey") +  # Reference line (random)
+  labs(title = "ROC Curve - Neural Network",
+       x = "1 - Specificity",
+       y = "Sensitivity") +
+  scale_color_manual(values = c("Neural Network" = "#fca311")) +  # Color of the curve
+  theme(plot.title = element_text(hjust = 0.5))
+# AUC
+auc_value_nn <- auc(nnet_roc)
+cat("AUC:", auc_value_nn, "\n")
+
+```
+
+The ROC curve for the model shows excellent performance, with an AUC (Area Under the Curve) of **0.8533**. This indicates a strong ability to distinguish between the two classes, as the AUC value is closer to 1, which represents perfect classification. An AUC of 0.8533 suggests that the model has a high true positive rate while keeping the false positive rate relatively low, making it a reliable model for predicting the outcome.
+
+\newpage
+
+### Neural Nets plot
+
+In this section, we will explore some graphical representations of the model to better understand its performance. These visualizations will help us assess how well the model distinguishes between the two classes and provide insights into its accuracy and predictive power. By examining the curves and plots, we can get a clearer picture of the model's strengths and areas for improvement. Visual tools like the ROC curve and others offer a simple yet powerful way to evaluate the model's effectiveness in real-world scenarios.
+
+```{r, nn plot 1, message=FALSE, warning=FALSE,  echo=FALSE}
+
+
+# NN Plot
+NN_plot <- ggplot(train_data, aes(x = Glucose, y = BMI, color = Outcome)) +
+  geom_point(size = 3) +
+  labs(title = "Glucose vs BMI for Decision Tree Model", x = "Glucose", y = "BMI") +
+  scale_color_manual(values = c("red", "blue"))
+
+print(NN_plot)
+
+```
+
+Neural networks are powerful models capable of capturing intricate patterns and relationships within data. The architecture described, with its input, hidden, and output layers, is designed to process complex features and make predictions. The input layer takes in five nodes, each representing a key feature, such as BMI or Insulin levels. These features are then passed through the two hidden layers, which learn to identify and combine relevant patterns in the data. The hidden layers’ nodes, H1-H5 and H6-H15, act as intermediary steps that extract more abstract and complex relationships before the final output is produced.
+
+\newpage
+
+### What does a neural network model look like in more depth?
+
+```{r, nn plot 2, message=FALSE, warning=FALSE,  echo=FALSE}
+# Plot Neural Network Model
+plotnet(nnet_model)
+```
+
+The output layer of the neural network contains a single node, "Outc," that generates the prediction based on the learned patterns. This final node represents the classification outcome, such as predicting the presence or absence of a specific condition. The strength of neural networks lies in their ability to adapt to different types of data and their flexibility in learning from both linear and nonlinear relationships. By adjusting weights during training, the network continuously improves its predictions, making it highly effective in solving complex tasks like classification problems.
+
+\newpage
+
+# Final Comparison Between Models
+
+Well, we have analyzed all the models, reviewing their different metrics, ROC curves, and AUC values. Now, let us compare them to determine which model has been the most efficient. By examining these results side by side, we aim to identify the model that demonstrates the best balance between accuracy, precision, recall, and overall predictive power, as reflected by its AUC and other performance indicators. This final comparison will guide us in selecting the optimal approach for the given task.
+
+```{r, final comparision table and plot 1, message=FALSE, warning=FALSE,  echo=FALSE}
+
+# Create a dataframe with the metrics of the 4 models
+metrics_comparison <- data.frame(
+  Model = c("KNN", "Decision Tree", "SVM", "Neural Network"),
+  Accuracy = c(metrics_knn$Value[1], metrics_decision_tree$Value[1], svm_metrics$Value[1], metrics_nn$Value[1]),
+  Precision = c(metrics_knn$Value[2], metrics_decision_tree$Value[2], svm_metrics$Value[2], metrics_nn$Value[2]),
+  Recall = c(metrics_knn$Value[3], metrics_decision_tree$Value[3], svm_metrics$Value[3], metrics_nn$Value[3]),
+  F1_Score = c(metrics_knn$Value[4], metrics_decision_tree$Value[4], svm_metrics$Value[4], metrics_nn$Value[4]),
+  Specificity = c(metrics_knn$Value[5], metrics_decision_tree$Value[5], svm_metrics$Value[5], metrics_nn$Value[5]),
+  Balanced_Accuracy = c(metrics_knn$Value[6], metrics_decision_tree$Value[6], svm_metrics$Value[6], metrics_nn$Value[6])
+)
+
+# Show metrics comparison table
+kable(metrics_comparison, caption = "Comparison of Model Metrics")
+
+## Final comparision Plot
+
+# Get FPR and TPR values for each model
+roc_knn_data <- data.frame(fpr = 1 - roc_curve$specificities, tpr = roc_curve$sensitivities)
+roc_dt_data <- data.frame(fpr = 1 - roc_curve$specificities, tpr = roc_curve$sensitivities)
+roc_svm_data <- data.frame(fpr = 1 - svm_roc$specificities, tpr = svm_roc$sensitivities)
+roc_nn_data <- data.frame(fpr = 1 - nnet_roc$specificities, tpr = nnet_roc$sensitivities)
+
+# Create a combined dataframe for the ROC curves
+roc_data <- rbind(
+  data.frame(fpr = roc_knn_data$fpr, tpr = roc_knn_data$tpr, Model = "KNN"),
+  data.frame(fpr = roc_dt_data$fpr, tpr = roc_dt_data$tpr, Model = "Decision Tree"),
+  data.frame(fpr = roc_svm_data$fpr, tpr = roc_svm_data$tpr, Model = "SVM"),
+  data.frame(fpr = roc_nn_data$fpr, tpr = roc_nn_data$tpr, Model = "Neural Network")
+)
+
+# Final Comparision plot
+ggplot(roc_data, aes(x = fpr, y = tpr, color = Model)) +
+  geom_smooth(method = "loess", se = FALSE, size = 1.2) +  
+  geom_point(size = 2, alpha = 0.8) +  
+  geom_abline(linetype = "dashed", color = "grey") +  
+  labs(title = "ROC Curve Comparison",
+       x = "1 - Specificity",
+       y = "Sensitivity") +
+  scale_color_manual(values = c("#023047", "#780000", "#ff006e", "#fca311")) +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom")
+
+```
+
+Ok, let's look at some interesting observations from this final comparison.:
+
+-   **SVM** achieved the **highest balanced accuracy (83.13%)**, demonstrating its strong ability to balance the identification of positive and negative classes. Additionally, it showed **excellent recall (92.92%)**, making it highly effective at identifying positive cases.
+-   The **Neural Network** model delivered a well-rounded performance, with a **balanced accuracy of 80.96%** and a competitive **F1 score (85.71%)**, reflecting its ability to maintain a good balance between precision and recall.
+-   **KNN** performed decently, particularly in **precision (87.61%)**, but its **specificity (60.00%)** was lower compared to other models, indicating it struggled slightly with identifying negative cases.
+-   The **Decision Tree** had a **lower precision (59.57%)** compared to other models but stood out with a **specificity of 83.19%**, making it relatively good at identifying negative cases.
+
+The **ROC curve** plot revealed that the **Neural Network** had a strong area under the curve (AUC), further indicating its effectiveness in distinguishing between classes. However, one model's curve (likely **Decision Tree**) appeared nearly indistinguishable due to overlap, complicating direct visual comparison.
+
+To address this, the following bar chart compares the AUC values for all models to clearly identify the most efficient one. This provides a quantitative insight into their discriminative power.
+
+```{r, final comparision plot 2, message=FALSE, warning=FALSE,  echo=FALSE}
+# Bar final comparision
+auc_values <- data.frame(
+  Model = c("KNN", "Decision Tree", "SVM", "Neural Network"),
+  AUC = c(auc_value_knn, auc_value_dt, auc_value_svm, auc_value_nn)
+)
+
+ggplot(auc_values, aes(x = reorder(Model, -AUC), y = AUC, fill = Model)) +
+  geom_bar(stat = "identity", width = 0.6, alpha = 0.9) +  
+  geom_text(aes(label = round(AUC, 3)), vjust = -0.3, size = 4) +  
+  labs(title = "Comparison of Model AUCs",
+       x = "Model",
+       y = "AUC") +
+  scale_fill_manual(values = c("#023047", "#780000", "#ff006e", "#fca311")) +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "none") 
+
+```
+
+In this **final bar chart**, we can clearly observe that the **Neural Network** emerged as the most efficient model, with the highest AUC. This indicates its excellent ability to distinguish between classes across all thresholds.
+
+Close behind is the **SVM**, showcasing its strong performance despite slightly lower balanced accuracy compared to the Neural Network. These results reinforce the idea that both models are robust options for classification tasks, excelling in their ability to handle complex relationships within the dataset.
+
+Interestingly, while the **KNN** model demonstrated strong metrics in the earlier analysis, such as recall and balanced accuracy, its **AUC value did not outperform** the Neural Network or KNN, suggesting it might be more situation-dependent in its efficiency. Similarly, the **Decision Tree**, despite its strengths in specificity, had a relatively lower AUC, indicating that its performance may lack consistency across thresholds.
+
+This chart provides a **clear quantitative comparison** of the models' overall discriminative power, emphasizing that the **Neural Network and SVM models are the top-performing candidates** for this dataset and task.
+
+\newpage
+
+## Acknowledgments
+
+I would like to extend my heartfelt **gratitude to the incredible team at Harvard and edX** for designing and delivering this exceptional course. Working on this project, titled *Choose Your
+Own* , has been an immensely rewarding experience. It not only deepened my understanding of **data analysis and data science concepts** but also marked my **first step into this fascinating field**.
+
+This journey has been both challenging and inspiring, and I am truly grateful for the opportunity to learn from such a distinguished program. I hope this submission reflects the effort and passion I put into it, and that it is as enjoyable for you to review as it was for me to create.
+
+Thank you for guiding me through this transformative learning experience.
